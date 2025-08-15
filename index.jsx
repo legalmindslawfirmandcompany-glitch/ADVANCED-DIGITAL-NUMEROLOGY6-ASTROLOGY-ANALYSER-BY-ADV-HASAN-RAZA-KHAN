@@ -1,858 +1,812 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import sys
+import pyttsx3
+import threading
+from PyQt5.QtWidgets import (
+    QApplication, QWidget, QLabel, QPushButton, QVBoxLayout,
+    QHBoxLayout, QLineEdit, QGroupBox, QFrame, QScrollArea,
+    QCheckBox, QMessageBox, QSizePolicy, QSpinBox, QSpacerItem
+)
+from PyQt5.QtGui import QFont, QPalette, QColor, QClipboard
+from PyQt5.QtCore import Qt, QSize
+from itertools import combinations
+import time
 
-// Main App Component
-const App = () => {
-  const [fileContent, setFileContent] = useState('');
-  const [extractedData, setExtractedData] = useState([]);
-  const [columns, setColumns] = useState([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isAiProcessing, setIsAiProcessing] = useState(false);
-  const [message, setMessage] = useState('');
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [downloadFormats, setDownloadFormats] = useState(['csv']);
-  const [textInput, setTextInput] = useState('');
-  const [selectedPrefix, setSelectedPrefix] = useState('');
-  const [customPrefix, setCustomPrefix] = useState('');
-  const [selectedSuffix, setSelectedSuffix] = useState('');
-  const [customSuffix, setCustomSuffix] = useState('');
-  const [previewContent, setPreviewContent] = useState('');
-  const [activePreviewFormat, setActivePreviewFormat] = useState(null);
-  const [imageUrl, setImageUrl] = useState(''); // State to hold the uploaded image URL
-
-  const fileInputRef = useRef(null);
-  const fileReader = new FileReader();
-
-  // Show a temporary message
-  const showMessage = (text, duration = 3000) => {
-    setMessage(text);
-    setTimeout(() => setMessage(''), duration);
-  };
-
-  // Toggle dark mode
-  const toggleDarkMode = () => {
-    setIsDarkMode(prevMode => !prevMode);
-  };
-
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+# --- Numerology Mappings and Definitions ---
+MAPPINGS = {
+    "Pythagorean": {
+        'A': 1, 'J': 1, 'S': 1, 'B': 2, 'K': 2, 'T': 2, 'C': 3, 'L': 3, 'U': 3,
+        'D': 4, 'M': 4, 'V': 4, 'E': 5, 'N': 5, 'W': 5, 'F': 6, 'O': 6, 'X': 6,
+        'G': 7, 'P': 7, 'Y': 7, 'H': 8, 'Q': 8, 'Z': 8, 'I': 9, 'R': 9
+    },
+    "Chaldean": {
+        'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 8, 'G': 3, 'H': 5, 'I': 1,
+        'J': 1, 'K': 2, 'L': 3, 'M': 4, 'N': 5, 'O': 7, 'P': 8, 'Q': 1, 'R': 2,
+        'S': 3, 'T': 4, 'U': 6, 'V': 6, 'W': 6, 'X': 5, 'Y': 1, 'Z': 7
+    },
+    "Cheiro": {
+        'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 8, 'G': 3, 'H': 5, 'I': 1,
+        'J': 1, 'K': 2, 'L': 3, 'M': 4, 'N': 5, 'O': 7, 'P': 8, 'Q': 1, 'R': 2,
+        'S': 3, 'T': 4, 'U': 6, 'V': 6, 'W': 6, 'X': 5, 'Y': 1, 'Z': 7
+    },
+    "Kabbalistic": {
+        'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, 'I': 9,
+        'J': 1, 'K': 2, 'L': 3, 'M': 4, 'N': 5, 'O': 6, 'P': 7, 'Q': 8, 'R': 9,
+        'S': 1, 'T': 2, 'U': 3, 'V': 4, 'W': 5, 'X': 6, 'Y': 7, 'Z': 8
+    },
+    "Tamil/Vedic": {
+        'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, 'I': 9,
+        'J': 1, 'K': 2, 'L': 3, 'M': 4, 'N': 5, 'O': 6, 'P': 7, 'Q': 8, 'R': 9,
+        'S': 1, 'T': 2, 'U': 3, 'V': 4, 'W': 5, 'X': 6, 'Y': 7, 'Z': 8
+    },
+    "Chinese": {
+        'A': 8, 'B': 6, 'C': 3, 'D': 4, 'E': 9, 'F': 2, 'G': 7, 'H': 1, 'I': 5,
+        'J': 8, 'K': 6, 'L': 3, 'M': 4, 'N': 9, 'O': 2, 'P': 7, 'Q': 1, 'R': 5,
+        'S': 8, 'T': 6, 'U': 3, 'V': 4, 'W': 9, 'X': 2, 'Y': 7, 'Z': 8
+    },
+    "Islamic (Abjad)": {
+        'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 80, 'G': 3, 'H': 5, 'I': 10,
+        'J': 60, 'K': 20, 'L': 30, 'M': 40, 'N': 50, 'O': 70, 'P': 80, 'Q': 100,
+        'R': 200, 'S': 60, 'T': 400, 'U': 6, 'V': 6, 'W': 6, 'X': 500, 'Y': 10,
+        'Z': 700
     }
-  }, [isDarkMode]);
+}
 
-  // Helper to format mobile numbers to +92...
-  const formatMobileNumber = (number) => {
-    if (!number) return '';
-    const digits = number.replace(/\D/g, ''); // Remove all non-numeric characters
-    if (digits.startsWith('92') && digits.length >= 11) {
-      return `+${digits}`;
+NUMBER_DEFINITIONS = {
+    1: "Represents leadership, independence, and new beginnings. Individuals with this number are often driven and innovative.",
+    2: "Symbolizes cooperation, balance, and diplomacy. These individuals are often peacemakers, intuitive, and sensitive.",
+    3: "Associated with creativity, communication, and self-expression. People with this number are often social, artistic, and optimistic.",
+    4: "Represents stability, hard work, and practicality. These individuals are known for their strong foundation and organizational skills.",
+    5: "Symbolizes freedom, adventure, and adaptability. People with this number are often dynamic, curious, and love change.",
+    6: "Associated with harmony, responsibility, and nurturing. These individuals are often compassionate and focused on family and community.",
+    7: "Represents spirituality, introspection, and analysis. Individuals with this number are often wise, philosophical, and seek deeper truths.",
+    8: "Symbolizes ambition, power, and financial success. These individuals are often business-minded, authoritative, and focused on achievement.",
+    9: "Associated with humanitarianism, compassion, and completion. People with this number are often selfless, generous, and have a broad perspective."
+}
+
+SUCCESS_LINES = {
+    "Mind Plane": {4, 9, 2},
+    "Emotional Plane": {3, 5, 7},
+    "Practical Plane": {8, 1, 6}
+}
+
+# --- Astrology Definitions ---
+ZODIAC_SIGNS = {
+    "Aries": (3, 21, 4, 19), "Taurus": (4, 20, 5, 20),
+    "Gemini": (5, 21, 6, 20), "Cancer": (6, 21, 7, 22),
+    "Leo": (7, 23, 8, 22), "Virgo": (8, 23, 9, 22),
+    "Libra": (9, 23, 10, 22), "Scorpio": (10, 23, 11, 21),
+    "Sagittarius": (11, 22, 12, 21), "Capricorn": (12, 22, 1, 19),
+    "Aquarius": (1, 20, 2, 18), "Pisces": (2, 19, 3, 20)
+}
+
+ASTROLOGY_DETAILS = {
+    "Aries": {
+        "lucky_number": 9, "lucky_color": "Red", "element": "Fire",
+        "birthstone": "Diamond", "ruling_planet": "Mars", "lucky_day": "Tuesday"
+    },
+    "Taurus": {
+        "lucky_number": 6, "lucky_color": "Green", "element": "Earth",
+        "birthstone": "Emerald", "ruling_planet": "Venus", "lucky_day": "Friday"
+    },
+    "Gemini": {
+        "lucky_number": 5, "lucky_color": "Yellow", "element": "Air",
+        "birthstone": "Agate", "ruling_planet": "Mercury", "lucky_day": "Wednesday"
+    },
+    "Cancer": {
+        "lucky_number": 2, "lucky_color": "White", "element": "Water",
+        "birthstone": "Pearl", "ruling_planet": "Moon", "lucky_day": "Monday"
+    },
+    "Leo": {
+        "lucky_number": 1, "lucky_color": "Gold", "element": "Fire",
+        "birthstone": "Peridot", "ruling_planet": "Sun", "lucky_day": "Sunday"
+    },
+    "Virgo": {
+        "lucky_number": 5, "lucky_color": "Green", "element": "Earth",
+        "birthstone": "Sapphire", "ruling_planet": "Mercury", "lucky_day": "Wednesday"
+    },
+    "Libra": {
+        "lucky_number": 6, "lucky_color": "Pink", "element": "Air",
+        "birthstone": "Opal", "ruling_planet": "Venus", "lucky_day": "Friday"
+    },
+    "Scorpio": {
+        "lucky_number": 9, "lucky_color": "Black", "element": "Water",
+        "birthstone": "Topaz", "ruling_planet": "Pluto", "lucky_day": "Tuesday"
+    },
+    "Sagittarius": {
+        "lucky_number": 3, "lucky_color": "Purple", "element": "Fire",
+        "birthstone": "Turquoise", "ruling_planet": "Jupiter", "lucky_day": "Thursday"
+    },
+    "Capricorn": {
+        "lucky_number": 8, "lucky_color": "Brown", "element": "Earth",
+        "birthstone": "Garnet", "ruling_planet": "Saturn", "lucky_day": "Saturday"
+    },
+    "Aquarius": {
+        "lucky_number": 4, "lucky_color": "Blue", "element": "Air",
+        "birthstone": "Amethyst", "ruling_planet": "Uranus", "lucky_day": "Saturday"
+    },
+    "Pisces": {
+        "lucky_number": 7, "lucky_color": "Sea Green", "element": "Water",
+        "birthstone": "Aquamarine", "ruling_planet": "Neptune", "lucky_day": "Thursday"
     }
-    if (digits.startsWith('0') && digits.length === 11) {
-      return `+92${digits.substring(1)}`;
-    }
-    if (digits.startsWith('3') && digits.length === 10) {
-        return `+92${digits}`;
-    }
-    return digits;
-  };
+}
 
-  // --- Parsing Logic ---
 
-  // Function to process unstructured text with AI, including text from OCR
-  const processTextWithAI = async (text, imageData = null) => {
-    setIsAiProcessing(true);
-    let retries = 0;
-    const maxRetries = 5;
-    const baseDelay = 1000;
-    
-    // The prompt guides the AI to perform OCR and then structure the data
-    const prompt = `You are a data extraction bot. Your task is to extract political contact information from the following text (which may be from an image) and return it as a structured JSON array. Each object in the array must have the following keys:
-    'name', 'constituency', 'party', 'fatherHusbandName', 'email', 'mobilePhone1', 'mobilePhone2', 'mobilePhone3', 'address', 'placeOfBirth', 'maritalStatus', 'religion', 'assemblyTenure', 'notes', 'academicQualifications', 'schooling', 'partyAffiliation'.
+# --- Main Application Window ---
+class NMSWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Universal Numerology & Astrology Suite")
+        self.setMinimumSize(QSize(1000, 800))
 
-    If a key's value is not present in the text, use an empty string. Combine multiple mobile numbers into 'mobilePhone1', 'mobilePhone2', etc. Use the provided keys exactly as they are.
+        self.tts_engine = pyttsx3.init()
+        self.tts_engine.setProperty('rate', 150)
+        self.tts_engine.connect('finished-utterance', self._on_tts_finished)
+        self.tts_lock = threading.Lock()
+        self.is_tts_paused = False
+        self.current_tts_id = None
+        self.tts_buttons = {}
 
-    Here is the text to parse:
-    ${text}`;
+        self.output_labels = {}
+        self.method_checkboxes = {}
+        self.person_input_fields = []
+        self.person_output_layouts = []
+        self.method_boxes = {}
+        self.person_data = {}
+        self.astrology_output_labels = {}
 
-    // Payload for the API call
-    const payload = {
-        contents: [
-            {
-                role: "user",
-                parts: [
-                    { text: prompt },
-                ]
-            }
-        ],
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: "ARRAY",
-                items: {
-                    type: "OBJECT",
-                    properties: {
-                        "name": { "type": "STRING" },
-                        "constituency": { "type": "STRING" },
-                        "party": { "type": "STRING" },
-                        "fatherHusbandName": { "type": "STRING" },
-                        "email": { "type": "STRING" },
-                        "mobilePhone1": { "type": "STRING" },
-                        "mobilePhone2": { "type": "STRING" },
-                        "mobilePhone3": { "type": "STRING" },
-                        "address": { "type": "STRING" },
-                        "placeOfBirth": { "type": "STRING" },
-                        "maritalStatus": { "type": "STRING" },
-                        "religion": { "type": "STRING" },
-                        "assemblyTenure": { "type": "STRING" },
-                        "notes": { "type": "STRING" },
-                        "academicQualifications": { "type": "STRING" },
-                        "schooling": { "type": "STRING" },
-                        "partyAffiliation": { "type": "STRING" }
-                    },
-                    required: ["name", "constituency", "party", "fatherHusbandName", "email", "mobilePhone1", "mobilePhone2", "mobilePhone3", "address", "placeOfBirth", "maritalStatus", "religion", "assemblyTenure", "notes", "academicQualifications", "schooling", "partyAffiliation"]
-                }
-            }
-        }
-    };
-    
-    // If image data is provided, add it to the payload for OCR
-    if (imageData) {
-        payload.contents[0].parts.push({
-            inlineData: {
-                mimeType: "image/png", // Assuming image is converted to PNG format
-                data: imageData
-            }
-        });
-    }
+        self.default_font_size = 10
+        self.analysis_labels_to_style = []
 
-    const apiKey = "";
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        self.initUI()
+        self.update_font_size(self.default_font_size)
 
-    while (retries < maxRetries) {
-      try {
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const result = await response.json();
+    def initUI(self):
+        main_scroll_area = QScrollArea(self)
+        main_scroll_area.setWidgetResizable(True)
+        main_scroll_content = QWidget()
+        main_layout = QVBoxLayout(main_scroll_content)
+
+        # --- Method Selection Checkboxes ---
+        method_selection_box = QGroupBox("Select Methods to Analyze")
+        method_selection_layout = QHBoxLayout(method_selection_box)
+        for method_name in MAPPINGS.keys():
+            checkbox = QCheckBox(method_name)
+            checkbox.setChecked(True)
+            self.method_checkboxes[method_name] = checkbox
+            method_selection_layout.addWidget(checkbox)
         
-        if (result.candidates && result.candidates.length > 0 &&
-            result.candidates[0].content && result.candidates[0].content.parts &&
-            result.candidates[0].content.parts.length > 0) {
-          const jsonString = result.candidates[0].content.parts[0].text;
-          const parsedData = JSON.parse(jsonString);
-          setIsAiProcessing(false);
-          return parsedData;
-        } else {
-          throw new Error("AI response format is unexpected.");
+        # Add a checkbox for Astrology
+        self.astrology_checkbox = QCheckBox("Astrology")
+        self.astrology_checkbox.setChecked(True)
+        method_selection_layout.addWidget(self.astrology_checkbox)
+        
+        main_layout.addWidget(method_selection_box)
+
+        # Top layout for inputs and analyze button
+        input_frame = QFrame(self)
+        input_frame.setFrameShape(QFrame.StyledPanel)
+        input_frame.setFrameShadow(QFrame.Sunken)
+        input_layout = QVBoxLayout(input_frame)
+
+        person_count_layout = QHBoxLayout()
+        person_count_label = QLabel("Number of Persons (1-10):")
+        self.person_count_spinbox = QSpinBox()
+        self.person_count_spinbox.setRange(1, 10)
+        self.person_count_spinbox.setValue(2)
+        self.person_count_spinbox.valueChanged.connect(self.update_person_inputs)
+        person_count_layout.addWidget(person_count_label)
+        person_count_layout.addWidget(self.person_count_spinbox)
+        person_count_layout.addStretch(1)
+        input_layout.addLayout(person_count_layout)
+
+        self.input_fields_container = QHBoxLayout()
+        input_layout.addLayout(self.input_fields_container)
+
+        # --- Compatibility Analysis section ---
+        self.compatibility_box = QGroupBox("Joint Compatibility Analysis")
+        self.compatibility_box.setCheckable(True)
+        self.compatibility_box.setChecked(True)
+        self.compatibility_box.setFont(QFont("Arial", 12, QFont.Bold))
+        compatibility_box_layout = QVBoxLayout(self.compatibility_box)
+        
+        compatibility_header_layout = QHBoxLayout()
+        compatibility_header_layout.addWidget(QLabel("Compatibility Results:"))
+        self.compatibility_play_pause_button = QPushButton("▶ Play")
+        self.compatibility_play_pause_button.clicked.connect(self._play_pause_compatibility)
+        self.tts_buttons["compatibility"] = self.compatibility_play_pause_button
+        compatibility_header_layout.addStretch(1)
+        compatibility_header_layout.addWidget(self.compatibility_play_pause_button)
+        compatibility_box_layout.addLayout(compatibility_header_layout)
+
+        self.compatibility_scroll_area = QScrollArea(self)
+        self.compatibility_scroll_area.setWidgetResizable(True)
+        self.compatibility_scroll_area.setMinimumSize(800, 200)
+        self.compatibility_content = QWidget()
+        compatibility_scroll_layout = QVBoxLayout(self.compatibility_content)
+
+        self.compatibility_output_label = QLabel("Click 'Analyze and Compare' to see compatibility results.", self)
+        self.compatibility_output_label.setWordWrap(True)
+        self.analysis_labels_to_style.append(self.compatibility_output_label)
+        compatibility_scroll_layout.addWidget(self.compatibility_output_label)
+
+        self.compatibility_scroll_area.setWidget(self.compatibility_content)
+        compatibility_box_layout.addWidget(self.compatibility_scroll_area)
+        # We don't add this to the main layout yet, we add it later after person inputs
+
+        # --- Output layout for side-by-side comparison (Moved to be created earlier) ---
+        self.output_layout_container = QHBoxLayout()
+        output_frame = QFrame(self)
+        output_frame.setFrameShape(QFrame.StyledPanel)
+        output_frame.setFrameShadow(QFrame.Sunken)
+        output_frame.setLayout(self.output_layout_container)
+        main_layout.addWidget(output_frame)
+
+        # Now we can safely call this function
+        self.update_person_inputs(2)
+
+        self.analyze_button = QPushButton("Analyze and Compare", self)
+        self.analyze_button.setFont(QFont("Arial", 12, QFont.Bold))
+        self.analyze_button.clicked.connect(self.analyze_all_methods)
+        input_layout.addWidget(self.analyze_button)
+        main_layout.addWidget(input_frame)
+
+        # Now add the compatibility box to the main layout
+        main_layout.addWidget(self.compatibility_box)
+
+        # Action buttons
+        button_layout = QHBoxLayout()
+        self.copy_button = QPushButton("Copy All Analysis to Clipboard")
+        self.copy_button.clicked.connect(self.copy_to_clipboard)
+        font_size_label = QLabel("Analysis Font Size:")
+        self.font_size_spinbox = QSpinBox()
+        self.font_size_spinbox.setRange(8, 24)
+        self.font_size_spinbox.setValue(self.default_font_size)
+        self.font_size_spinbox.valueChanged.connect(self.update_font_size)
+        self.dark_toggle = QCheckBox("Enable Dark Mode", self)
+        self.dark_toggle.stateChanged.connect(self.toggle_dark_mode)
+
+        button_layout.addWidget(self.copy_button)
+        button_layout.addStretch(1)
+        button_layout.addWidget(font_size_label)
+        button_layout.addWidget(self.font_size_spinbox)
+        button_layout.addWidget(self.dark_toggle)
+        main_layout.addLayout(button_layout)
+
+        main_scroll_area.setWidget(main_scroll_content)
+        self.setLayout(QVBoxLayout())
+        self.layout().addWidget(main_scroll_area)
+
+    def update_person_inputs(self, count):
+        # Clear existing input fields
+        for person_dict in self.person_input_fields:
+            person_dict['box'].setParent(None)
+        self.person_input_fields.clear()
+        self.tts_buttons.clear() # Clear TTS buttons as well
+        self.tts_buttons["compatibility"] = self.compatibility_play_pause_button
+        
+        # Create new input fields
+        for i in range(count):
+            person_input_box = QGroupBox(f"Person {i + 1}")
+            person_input_box.setFont(QFont("Arial", 12, QFont.Bold))
+            person_input_layout = QVBoxLayout(person_input_box)
+            name_input = QLineEdit(self)
+            name_input.setPlaceholderText("Enter full name")
+            dob_input = QLineEdit(self)
+            dob_input.setPlaceholderText("Enter DOB (DD-MM-YYYY)")
+            person_input_layout.addWidget(name_input)
+            person_input_layout.addWidget(dob_input)
+            person_input_box.setMinimumSize(200, 100)
+            person_input_box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            self.input_fields_container.addWidget(person_input_box)
+            self.person_input_fields.append({'name': name_input, 'dob': dob_input, 'box': person_input_box})
+        self.update_output_areas(count)
+
+    def update_output_areas(self, count):
+        # Clear existing output areas and labels
+        for layout in self.person_output_layouts:
+            while layout.count():
+                child = layout.takeAt(0)
+                if child.widget():
+                    child.widget().setParent(None)
+        self.person_output_layouts.clear()
+        self.output_labels.clear()
+        self.astrology_output_labels.clear()
+        self.method_boxes.clear()
+
+        while self.output_layout_container.count():
+            child = self.output_layout_container.takeAt(0)
+            if child.widget():
+                child.widget().setParent(None)
+
+        for i in range(count):
+            person_scroll_area = QScrollArea(self)
+            person_scroll_area.setWidgetResizable(True)
+            person_scroll_area.setMinimumSize(400, 300)
+            person_scroll_content = QWidget()
+            person_scroll_layout = QVBoxLayout(person_scroll_content)
+            person_scroll_area.setWidget(person_scroll_content)
+            self.output_layout_container.addWidget(person_scroll_area)
+            self.person_output_layouts.append(person_scroll_layout)
+
+            # Add Astrology section first
+            astrology_box = QFrame(self)
+            astrology_box.setFrameShape(QFrame.StyledPanel)
+            astrology_box.setFrameShadow(QFrame.Sunken)
+            astrology_layout = QVBoxLayout(astrology_box)
+            astrology_header_layout = QHBoxLayout()
+            astrology_name_label = QLabel(f"⭐ Astrology", self)
+            astrology_name_label.setFont(QFont("Arial", 16, QFont.Bold))
+            astrology_play_pause_button = QPushButton("▶ Play")
+            astrology_tts_id = f"person_{i}_astrology"
+            self.tts_buttons[astrology_tts_id] = astrology_play_pause_button
+            astrology_play_pause_button.clicked.connect(lambda _, id=astrology_tts_id, p=i, m="astrology": self._play_pause_tts(id, p, m))
+            astrology_header_layout.addWidget(astrology_name_label)
+            astrology_header_layout.addStretch(1)
+            astrology_header_layout.addWidget(astrology_play_pause_button)
+            astrology_layout.addLayout(astrology_header_layout)
+            astrology_output_label = QLabel("Click 'Analyze and Compare' to see results.", self)
+            astrology_output_label.setWordWrap(True)
+            self.astrology_output_labels[i] = astrology_output_label
+            self.analysis_labels_to_style.append(astrology_output_label)
+            astrology_layout.addWidget(astrology_output_label)
+            self.person_output_layouts[i].addWidget(astrology_box)
+            self.method_boxes[("astrology", i)] = astrology_box
+
+            # Then add Numerology methods
+            for method in MAPPINGS.keys():
+                method_box = QFrame(self)
+                method_box.setFrameShape(QFrame.StyledPanel)
+                method_box.setFrameShadow(QFrame.Sunken)
+                method_layout = QVBoxLayout(method_box)
+                header_layout = QHBoxLayout()
+                method_name_label = QLabel(f"🔹 {method}", self)
+                method_name_label.setFont(QFont("Arial", 16, QFont.Bold))
+                play_pause_button = QPushButton("▶ Play")
+                tts_id = f"person_{i}_method_{method}"
+                self.tts_buttons[tts_id] = play_pause_button
+                play_pause_button.clicked.connect(lambda _, id=tts_id, p=i, m=method: self._play_pause_tts(id, p, m))
+                header_layout.addWidget(method_name_label)
+                header_layout.addStretch(1)
+                header_layout.addWidget(play_pause_button)
+                method_layout.addLayout(header_layout)
+                output_label = QLabel("Click 'Analyze and Compare' to see results.", self)
+                output_label.setWordWrap(True)
+                self.output_labels[(method, i)] = output_label
+                self.analysis_labels_to_style.append(output_label)
+                method_layout.addWidget(output_label)
+                self.person_output_layouts[i].addWidget(method_box)
+                self.method_boxes[(method, i)] = method_box
+        self.output_layout_container.addStretch(1)
+
+    def update_font_size(self, size):
+        font = QFont("Arial", size)
+        for label in self.analysis_labels_to_style:
+            label.setFont(font)
+
+    def analyze_all_methods(self):
+        person_count = self.person_count_spinbox.value()
+        self._stop_all_tts()
+        
+        inputs = []
+        for i in range(person_count):
+            name = self.person_input_fields[i]['name'].text().strip().upper()
+            dob = self.person_input_fields[i]['dob'].text().strip()
+
+            if not name or not dob:
+                msg = f"❌ Please enter full name and date of birth for Person {i + 1}."
+                QMessageBox.warning(self, "Missing Information", msg)
+                return
+
+            try:
+                day, month, year = map(int, dob.split('-'))
+                if not (1 <= day <= 31 and 1 <= month <= 12 and 1900 <= year <= 2100):
+                    raise ValueError
+            except (ValueError, IndexError):
+                msg = f"❌ Please enter a valid date of birth for Person {i + 1} in the format DD-MM-YYYY."
+                QMessageBox.warning(self, "Invalid Date Format", msg)
+                return
+            inputs.append({'name': name, 'dob': dob, 'day': day, 'month': month, 'year': year})
+
+        self.person_data.clear()
+        compatibility_text = ""
+        selected_methods = [method for method, checkbox in self.method_checkboxes.items() if checkbox.isChecked()]
+        is_astrology_selected = self.astrology_checkbox.isChecked()
+        
+        if not selected_methods and not is_astrology_selected:
+            msg = "❌ Please select at least one method (Numerology or Astrology)."
+            QMessageBox.warning(self, "No Methods Selected", msg)
+            return
+
+        for i in range(person_count):
+            self.person_data[i] = {}
+
+        if is_astrology_selected:
+            for i in range(person_count):
+                self.method_boxes[("astrology", i)].show()
+                dob_data = inputs[i]
+                zodiac_sign, details, speech_text = self._run_astrology_analysis(dob_data['day'], dob_data['month'])
+                self.astrology_output_labels[i].setText(details)
+                self.astrology_output_labels[i].speech_text = speech_text
+                self.person_data[i]["astrology"] = {"zodiac_sign": zodiac_sign}
+        else:
+            for i in range(person_count):
+                 self.method_boxes[("astrology", i)].hide()
+
+        for method in MAPPINGS.keys():
+            is_checked = self.method_checkboxes[method].isChecked()
+            for i in range(person_count):
+                if is_checked:
+                    self.method_boxes[(method, i)].show()
+                    name = inputs[i]['name']
+                    dob = inputs[i]['dob']
+                    result, speech, p_data = self._run_numerology_analysis_for_person(name, dob, method, MAPPINGS[method])
+                    self.output_labels[(method, i)].setText(result)
+                    self.output_labels[(method, i)].speech_text = speech
+                    self.person_data[i][method] = p_data
+                else:
+                    self.method_boxes[(method, i)].hide()
+
+        if person_count > 1:
+            compatibility_text = self._run_group_compatibility_analysis(inputs, selected_methods, is_astrology_selected)
+            self.display_compatibility_analysis(compatibility_text)
+        else:
+            self.compatibility_output_label.setText("No compatibility analysis performed for a single person.")
+
+    def _run_numerology_analysis_for_person(self, name, dob, method, mapping):
+        result_text = ""
+        speech_text = f"Using the {method} method. "
+        person_data = {
+            "name": name, "dob": dob, "name_number": None, "lucky_number": None,
+            "master_numbers": set(), "present_numbers": set(), "missing_numbers": set(),
+            "success_lines": 0
         }
-      } catch (error) {
-        console.error("AI processing failed, retrying...", error);
-        retries++;
-        if (retries < maxRetries) {
-          await new Promise(res => setTimeout(res, baseDelay * Math.pow(2, retries)));
-        } else {
-          setIsAiProcessing(false);
-          showMessage('Failed to process text with AI after multiple attempts. Please try again.');
-          return [];
-        }
-      }
-    }
-    return [];
-  };
+        day, month, year = map(int, dob.split('-'))
 
-  // CSV parsing (remains the same)
-  const parseCsv = useCallback((text) => {
-    const rows = text.split('\n').filter(row => row.trim() !== '');
-    if (rows.length === 0) return [];
-    const headers = rows[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-    const data = [];
+        def reduce_to_single_digit(num):
+            if num in [11, 22, 33]: return num
+            while num > 9: num = sum(int(digit) for digit in str(num))
+            return num
+        
+        def calculate_and_format_sum(input_string, method_mapping):
+            calculation_parts, total_sum, present_nums_in_calc = [], 0, set()
+            for char in input_string:
+                if char in method_mapping:
+                    value = method_mapping[char]
+                    calculation_parts.append(f"{char}={value}")
+                    total_sum += value
+                    present_nums_in_calc.add(reduce_to_single_digit(value))
+                elif char.isspace(): calculation_parts.append("+")
+            return " ".join(calculation_parts), total_sum, present_nums_in_calc
+        
+        def calculate_dob_digits(dob_str): return [int(d) for d in dob_str if d.isdigit()]
 
-    for (let i = 1; i < rows.length; i++) {
-      const values = rows[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/^"|"$/g, ''));
-      if (values.length === headers.length) {
-        const rowObject = {};
-        headers.forEach((header, index) => {
-          rowObject[header] = values[index];
-        });
-        data.push(rowObject);
-      }
-    }
-    return data;
-  }, []);
+        result_text += "<h3>Name Number Calculation:</h3>"
+        name_calc_str, name_total, present_name_nums = calculate_and_format_sum(name, mapping)
+        result_text += f"<ul><li>Individual Values: {name_calc_str}</li>"
+        result_text += f"<li>Total Sum: {name_total}</li>"
+        reduced_name = reduce_to_single_digit(name_total)
+        result_text += f"<li>Final Name Number: <b>{reduced_name}</b></li></ul>"
+        person_data["name_number"] = reduced_name
+        if reduced_name in [11, 22, 33]: person_data["master_numbers"].add(reduced_name)
+        speech_text += f"Your name number is {reduced_name}. "
 
-  // VCF parsing (remains the same)
-  const parseVcf = useCallback((text) => {
-    const data = [];
-    const vcards = text.split('BEGIN:VCARD').filter(v => v.trim() !== '');
+        dob_digits = calculate_dob_digits(dob)
+        present_dob_nums = set(reduce_to_single_digit(d) for d in dob_digits)
+        result_text += "<h3>Lucky & Life Path Number Calculation:</h3>"
+        
+        if method == "Tamil/Vedic":
+            driver_num, kethu_num = reduce_to_single_digit(day), reduce_to_single_digit(month)
+            connector_num = reduce_to_single_digit(sum(dob_digits))
+            result_text += f"<ul><li><b>Driver Number:</b> {day} &rarr; <b>{driver_num}</b></li>"
+            result_text += f"<li><b>Kethu Number:</b> {month} &rarr; <b>{kethu_num}</b></li>"
+            result_text += f"<li><b>Connector Number:</b> {' + '.join(map(str, dob_digits))} &rarr; <b>{connector_num}</b></li></ul>"
+            person_data["lucky_number"] = (driver_num, kethu_num, connector_num)
+            speech_text += f"Your driver number is {driver_num}. Your Kethu number is {kethu_num}. Your connector number is {connector_num}. "
+        else:
+            dob_total = sum(dob_digits)
+            reduced_dob = reduce_to_single_digit(dob_total)
+            result_text += f"<ul><li>Date of Birth Digits: {' + '.join(map(str, dob_digits))}</li>"
+            result_text += f"<li>Total Sum: {dob_total}</li>"
+            result_text += f"<li>Final Life Path Number: <b>{reduced_dob}</b></li></ul>"
+            person_data["lucky_number"] = reduced_dob
+            speech_text += f"Your lucky number is {reduced_dob}. "
+            if reduced_dob in [11, 22, 33]: person_data["master_numbers"].add(reduced_dob)
 
-    vcards.forEach(vcard => {
-      const contact = {};
-      const lines = vcard.split('\n').filter(l => l.trim() !== '');
+        all_numbers = set(range(1, 10))
+        present_numbers = present_name_nums.union(present_dob_nums)
+        person_data["present_numbers"] = present_numbers
+        missing_numbers = sorted(list(all_numbers - present_numbers))
+        present_list = sorted(list(present_numbers))
+        person_data["missing_numbers"] = set(missing_numbers)
+        
+        result_text += "<h3>Numerology Profile Analysis:</h3>"
+        result_text += "<ul><li><b>What is a Lucky Number?</b><br>Your Lucky Numbers (Name and Life Path/Driver) are considered the core numbers that define your personality, talents, and life's purpose.</li>"
+        result_text += "<li><b>What is a Missing Number?</b><br>Missing numbers from your birth date or name can indicate areas where you may need to focus on personal growth, development, or balance in your life.</li></ul>"
+        present_missing_str = []
+        for num in range(1, 10): present_missing_str.append(f"🟢 {num} (+)" if num in present_list else f"🔴 {num} (-)")
+        result_text += f"<h4>Numbers: {' '.join(present_missing_str)}</h4>"
+        
+        result_text += "<h3>Success Line Analysis:</h3><ul>"
+        found_success_line = False
+        for line_name, line_numbers in SUCCESS_LINES.items():
+            if line_numbers.issubset(present_numbers):
+                result_text += f"<li><b>SUCCESS LINE FOUND:</b> You have a complete <b>{line_name}</b>!<br>This line consists of the numbers {line_numbers}. It indicates a strong natural ability in this area of your life.</li>"
+                found_success_line = True
+                person_data["success_lines"] += 1
+        if not found_success_line: result_text += "<li>No complete Success Lines found in your numerology profile.</li>"
+        result_text += "</ul>"
+        
+        result_text += "<h3>Detailed Number Definitions:</h3><ul>"
+        for num in sorted(present_numbers):
+            definition = NUMBER_DEFINITIONS.get(num, "Definition not available.")
+            result_text += f"<li><b>Number {num}:</b> {definition}</li>"
+        result_text += "</ul>"
+        
+        speech_text += (
+            f"Your numbers present are {', '.join(map(str, present_list))}. "
+            f"Your missing numbers are {', '.join(map(str, missing_numbers))}."
+        )
+        return result_text, speech_text, person_data
 
-      lines.forEach(line => {
-        const [key, ...valueParts] = line.split(':');
-        const value = valueParts.join(':').trim();
-        if (key && value) {
-          if (key.startsWith('FN')) contact.name = value;
-          if (key.startsWith('N')) {
-            const parts = value.split(';');
-            contact.name = parts[0];
-          }
-          if (key.startsWith('TEL')) {
-            if (!contact.mobile) contact.mobile = [];
-            contact.mobile.push(value);
-          }
-          if (key.startsWith('EMAIL')) contact.email = value;
-          if (key.startsWith('ADR')) contact.address = value.split(';').pop().trim();
-          if (key.startsWith('ORG')) contact.party = value;
-        }
-      });
-      data.push(contact);
-    });
-    return data;
-  }, []);
+    def _run_astrology_analysis(self, day, month):
+        zodiac_sign = "Unknown"
+        
+        for sign, (start_month, start_day, end_month, end_day) in ZODIAC_SIGNS.items():
+            if (month == start_month and day >= start_day) or (month == end_month and day <= end_day):
+                zodiac_sign = sign
+                break
+            elif start_month > end_month: # Handle Capricorn spanning two years
+                if (month == start_month and day >= start_day) or (month == end_month and day <= end_day):
+                    zodiac_sign = sign
+                    break
+        
+        details = ASTROLOGY_DETAILS.get(zodiac_sign, {})
 
-  // Handler to process content from various sources (file, paste)
-  const handleContentProcessing = async (content, filename = 'pasted_data.txt', imageType = null) => {
-    setIsProcessing(true);
-    setFileContent(content);
-    let parsedData = [];
-
-    if (imageType) {
-        // If it's an image, pass the base64 content to the AI for OCR and data extraction
-        parsedData = await processTextWithAI('', content);
-    } else if (filename.includes('.csv')) {
-        parsedData = parseCsv(content);
-    } else if (filename.includes('.vcf')) {
-        parsedData = parseVcf(content);
-    } else {
-        parsedData = await processTextWithAI(content);
-    }
-
-    // Post-processing to format mobile numbers
-    const formattedData = parsedData.map(contact => {
-        const newContact = { ...contact };
-        if (newContact.mobilePhone1) {
-            newContact.mobilePhone1 = formatMobileNumber(newContact.mobilePhone1);
-        }
-        if (newContact.mobilePhone2) {
-            newContact.mobilePhone2 = formatMobileNumber(newContact.mobilePhone2);
-        }
-        if (newContact.mobilePhone3) {
-            newContact.mobilePhone3 = formatMobileNumber(newContact.mobilePhone3);
-        }
-        return newContact;
-    });
-    
-    setExtractedData(formattedData);
-    if (formattedData.length > 0) {
-      // Use a predefined, ordered list of columns for consistency
-      const predefinedColumns = [
-        { id: 'name', label: 'Name', visible: true },
-        { id: 'assemblyTenure', label: 'Tenure', visible: true },
-        { id: 'constituency', label: 'Constituency', visible: true },
-        { id: 'fatherHusbandName', label: 'Father /Husband Name', visible: true },
-        { id: 'party', label: 'Party', visible: true },
-        { id: 'placeOfBirth', label: 'Place of Birth', visible: true },
-        { id: 'address', label: 'Permanent Address', visible: true },
-        { id: 'mobilePhone1', label: 'Mobile 1', visible: true },
-        { id: 'mobilePhone2', label: 'Mobile 2', visible: true },
-        { id: 'mobilePhone3', label: 'Mobile 3', visible: true },
-        { id: 'email', label: 'Email', visible: true },
-        { id: 'academicQualifications', label: 'Academic Qualifications', visible: true },
-        { id: 'schooling', label: 'Schooling', visible: true },
-        { id: 'partyAffiliation', label: 'Party Affiliation', visible: true },
-        { id: 'notes', label: 'Notes', visible: true },
-      ];
-
-      // Filter to only include columns that are present in the data
-      const initialColumns = predefinedColumns.filter(col => formattedData[0].hasOwnProperty(col.id));
-      setColumns(initialColumns);
-    }
-    setIsProcessing(false);
-    setTextInput('');
-  };
-
-  // Handle file upload
-  const handleFileChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          // Set the image URL for preview
-          setImageUrl(e.target.result);
-          // Extract base64 string from the result
-          const base64String = e.target.result.split(',')[1];
-          handleContentProcessing(base64String, file.name, 'image');
-        };
-        reader.readAsDataURL(file);
-      } else {
-        // Handle text files
-        setImageUrl('');
-        fileReader.onload = (e) => {
-          handleContentProcessing(e.target.result, file.name);
-        };
-        fileReader.readAsText(file);
-      }
-    }
-  };
-
-  // Handle drag and drop
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const files = e.dataTransfer.files;
-    const text = e.dataTransfer.getData('text/plain');
-
-    if (files.length > 0) {
-      const file = files[0];
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          setImageUrl(event.target.result);
-          const base64String = event.target.result.split(',')[1];
-          handleContentProcessing(base64String, file.name, 'image');
-        };
-        reader.readAsDataURL(file);
-      } else {
-        setImageUrl('');
-        fileReader.onload = (event) => {
-          handleContentProcessing(event.target.result, file.name);
-        };
-        fileReader.readAsText(file);
-      }
-    } else if (text) {
-      setImageUrl('');
-      handleContentProcessing(text);
-    }
-  };
-
-  // Update a column's label or visibility
-  const updateColumn = (id, newValues) => {
-    setColumns(prevColumns =>
-      prevColumns.map(col =>
-        col.id === id ? { ...col, ...newValues } : col
-      )
-    );
-  };
-
-  // Drag and drop functionality for columns
-  const handleColumnDragStart = (e, index) => {
-    e.dataTransfer.setData('colIndex', index);
-  };
-
-  const handleColumnDragOver = (e) => {
-    e.preventDefault();
-  };
-
-  const handleColumnDrop = (e, newIndex) => {
-    e.preventDefault();
-    const oldIndex = e.dataTransfer.getData('colIndex');
-    const newColumns = [...columns];
-    const [movedColumn] = newColumns.splice(oldIndex, 1);
-    newColumns.splice(newIndex, 0, movedColumn);
-    setColumns(newColumns);
-  };
-  
-  // Export Logic for different formats
-  const getProcessedData = () => {
-    const processedData = JSON.parse(JSON.stringify(extractedData));
-    const prefix = selectedPrefix === 'custom' ? customPrefix : selectedPrefix;
-    const suffix = selectedSuffix === 'custom' ? customSuffix : selectedSuffix;
-
-    if (prefix || suffix) {
-      return processedData.map(contact => {
-        let newName = contact.name;
-        if (newName) {
-          if (prefix) {
-            newName = `${prefix} ${newName}`;
-          }
-          if (suffix) {
-            newName = `${newName} ${suffix}`;
-          }
-        }
-        return { ...contact, name: newName };
-      });
-    }
-    return processedData;
-  };
-
-  // Generate CSV content
-  const generateCsv = () => {
-    const dataToExport = getProcessedData();
-    const visibleColumns = columns.filter(col => col.visible);
-    const headers = visibleColumns.map(col => `"${col.label.replace(/"/g, '""')}"`);
-    const rows = dataToExport.map(row => 
-      visibleColumns.map(col => `"${(row[col.id] || '').toString().replace(/"/g, '""')}"`).join(',')
-    );
-    return [headers.join(','), ...rows].join('\n');
-  };
-
-  // Generate VCF content
-  const generateVcf = () => {
-    const dataToExport = getProcessedData();
-    let vcfContent = '';
-    dataToExport.forEach(row => {
-      vcfContent += 'BEGIN:VCARD\n';
-      vcfContent += 'VERSION:3.0\n';
-      if (row.name) vcfContent += `FN:${row.name}\n`;
-      if (row.name) vcfContent += `N:${row.name};;;;\n`;
-      if (row.email) vcfContent += `EMAIL;TYPE=INTERNET:${row.email}\n`;
-      
-      Object.keys(row).filter(key => key.startsWith('mobilePhone')).forEach(key => {
-        if (row[key]) {
-          vcfContent += `TEL;TYPE=CELL:${row[key].trim()}\n`;
-        }
-      });
-      
-      if (row.address) vcfContent += `ADR;TYPE=WORK:;;${row.address}\n`;
-      if (row.party) vcfContent += `ORG:${row.party}\n`;
-
-      // Custom fields to preserve all data
-      if (row.assemblyTenure) vcfContent += `X-ASSEMBLY-TENURE:${row.assemblyTenure}\n`;
-      if (row.fatherHusbandName) vcfContent += `X-FATHER-HUSBAND-NAME:${row.fatherHusbandName}\n`;
-      if (row.constituency) vcfContent += `X-CONSTITUENCY:${row.constituency}\n`;
-      if (row.placeOfBirth) vcfContent += `X-PLACE-OF-BIRTH:${row.placeOfBirth}\n`;
-      if (row.maritalStatus) vcfContent += `X-MARITAL-STATUS:${row.maritalStatus}\n`;
-      if (row.religion) vcfContent += `X-RELIGION:${row.religion}\n`;
-      if (row.notes) vcfContent += `X-NOTES:${row.notes}\n`;
-      if (row.academicQualifications) vcfContent += `X-ACADEMIC-QUALIFICATIONS:${row.academicQualifications}\n`;
-      if (row.schooling) vcfContent += `X-SCHOOLING:${row.schooling}\n`;
-      if (row.partyAffiliation) vcfContent += `X-PARTY-AFFILIATION:${row.partyAffiliation}\n`;
-
-      vcfContent += 'END:VCARD\n';
-    });
-    return vcfContent;
-  };
-
-  // Generate TXT content
-  const generateTxt = () => {
-    const dataToExport = getProcessedData();
-    const visibleColumns = columns.filter(col => col.visible);
-    const textContent = dataToExport.map(row => 
-      visibleColumns.map(col => `${col.label}: ${row[col.id] || 'N/A'}`).join('\n')
-    ).join('\n\n' + '='.repeat(40) + '\n\n');
-    return textContent;
-  };
-
-  // Handle the export based on selected format
-  const handleExport = () => {
-    const visibleColumns = columns.filter(col => col.visible);
-    if (visibleColumns.length === 0) {
-      showMessage('Please select at least one field to export.');
-      return;
-    }
-
-    if (downloadFormats.length === 0) {
-      showMessage('Please select at least one download format.');
-      return;
-    }
-
-    downloadFormats.forEach(format => {
-      let fileContent;
-      let fileName;
-      let mimeType;
-
-      switch (format) {
-        case 'csv':
-          fileContent = generateCsv();
-          fileName = 'formatted_contacts.csv';
-          mimeType = 'text/csv';
-          break;
-        case 'vcf':
-          fileContent = generateVcf();
-          fileName = 'formatted_contacts.vcf';
-          mimeType = 'text/vcard';
-          break;
-        case 'txt':
-          fileContent = generateTxt();
-          fileName = 'formatted_contacts.txt';
-          mimeType = 'text/plain';
-          break;
-        default:
-          showMessage(`Invalid download format: ${format}`);
-          return;
-      }
-      
-      const blob = new Blob([fileContent], { type: `${mimeType};charset=utf-8;` });
-      const url = URL.createObjectURL(blob);
-      
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', fileName);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    });
-
-    showMessage(`Successfully downloaded as ${downloadFormats.join(', ').toUpperCase()} files!`);
-  };
-
-  // Handle checkbox change for formats
-  const handleFormatChange = (format) => {
-    setDownloadFormats(prevFormats =>
-      prevFormats.includes(format)
-        ? prevFormats.filter(f => f !== format)
-        : [...prevFormats, format]
-    );
-  };
-  
-  const handleTextInputChange = (e) => {
-    setTextInput(e.target.value);
-  };
-
-  const handleProcessTextInput = () => {
-    if (textInput.trim()) {
-      setImageUrl(''); // Clear image preview for text input
-      handleContentProcessing(textInput, 'pasted_text.txt');
-    }
-  };
-
-  // Handle preview generation
-  const handlePreview = (format) => {
-    setActivePreviewFormat(format);
-    let content = '';
-    switch (format) {
-      case 'csv':
-        content = generateCsv();
-        break;
-      case 'vcf':
-        content = generateVcf();
-        break;
-      case 'txt':
-        content = generateTxt();
-        break;
-      default:
-        content = 'Invalid format selected.';
-    }
-    setPreviewContent(content);
-  };
-
-  return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-900'} p-4 transition-colors duration-300`}>
-      <div className="container mx-auto max-w-5xl">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-extrabold text-blue-600 dark:text-blue-400 drop-shadow-lg">
-            Universal Contact Data Processor 🚀
-          </h1>
-          <button
-            onClick={toggleDarkMode}
-            className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-md transition-all duration-300 hover:scale-105"
-          >
-            {isDarkMode ? '☀️' : '🌙'}
-          </button>
-        </div>
-
-        <p className="text-lg text-gray-600 dark:text-gray-400 mb-6 max-w-3xl">
-          Upload text files, paste text, or upload an image to extract, clean, and format contact information.
-          Supported formats: <strong className="font-semibold">.txt, .csv, .vcf, .jpg, .png</strong>.
-        </p>
-
-        {/* File Upload / Drag & Drop / Paste Section */}
-        <div
-          className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 mb-8"
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleDrop}
-        >
-          <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl hover:border-blue-500 transition-colors duration-200">
-            <p className="text-gray-500 dark:text-gray-400 mb-4 text-center">Drag & Drop a file or paste text below.</p>
-            <label htmlFor="file-upload" className="cursor-pointer text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-bold">
-              <span className="text-center">Click to upload your file</span>
-              <input 
-                id="file-upload" 
-                type="file" 
-                className="hidden" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                accept=".txt,.csv,.vcf,image/*" // Updated accept attribute
-              />
-            </label>
-            <textarea
-              className="mt-4 w-full p-4 h-32 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Or paste your text content here..."
-              value={textInput}
-              onChange={handleTextInputChange}
-            />
-            <button
-              onClick={handleProcessTextInput}
-              className="mt-4 px-6 py-2 bg-blue-600 text-white font-bold rounded-full shadow-md hover:bg-blue-700 transition-all duration-300"
-            >
-              Process Text
-            </button>
-          </div>
-        </div>
-
-        {/* Message Box */}
-        {(message || isAiProcessing) && (
-          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-white p-4 rounded-xl shadow-2xl z-50 transition-all duration-300">
-            <p className="text-lg font-semibold">{isAiProcessing ? 'AI is intelligently processing your data... 🤖' : message}</p>
-          </div>
-        )}
-
-        {/* Data Preview and Controls */}
-        {extractedData.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-            <h2 className="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">
-              Formatting & Arrangement
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Use the controls below to customize your data. Drag and drop the labels to reorder columns.
-            </p>
-
-            {/* Image Preview */}
-            {imageUrl && (
-                <div className="mb-8 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl shadow-inner">
-                    <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">Uploaded Image Preview</h3>
-                    <img src={imageUrl} alt="Uploaded for processing" className="max-w-full h-auto rounded-lg shadow-md border border-gray-300 dark:border-gray-600" />
-                </div>
-            )}
-
-            {/* Column Control UI */}
-            <div className="mb-8 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl shadow-inner">
-              <h3 className="font-semibold text-lg mb-4 text-gray-900 dark:text-gray-100">
-                Column Settings
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {columns.map((col, index) => (
-                  <div
-                    key={col.id}
-                    className="flex items-center space-x-2 bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm cursor-grab active:cursor-grabbing hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                    draggable
-                    onDragStart={(e) => handleColumnDragStart(e, index)}
-                    onDragOver={handleColumnDragOver}
-                    onDrop={(e) => handleColumnDrop(e, index)}
-                  >
-                    <div className="flex-none">
-                      <input
-                        type="checkbox"
-                        checked={col.visible}
-                        onChange={(e) => updateColumn(col.id, { visible: e.target.checked })}
-                        className="h-5 w-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300"
-                      />
-                    </div>
-                    <input
-                      type="text"
-                      value={col.label}
-                      onChange={(e) => updateColumn(col.id, { label: e.target.value })}
-                      className="flex-grow p-2 rounded-md bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Preview Table */}
-            <h3 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">
-              Live Preview
-            </h3>
-            <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    {columns.filter(col => col.visible).map(col => (
-                      <th
-                        key={col.id}
-                        className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider"
-                      >
-                        {col.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {extractedData.map((row, rowIndex) => (
-                    <tr key={rowIndex} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
-                      {columns.filter(col => col.visible).map(col => (
-                        <td
-                          key={`${rowIndex}-${col.id}`}
-                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200"
-                        >
-                          {row[col.id]}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Prefix and Suffix Options */}
-            <div className="mt-8 p-6 bg-gray-50 dark:bg-gray-700 rounded-2xl shadow-inner">
-              <h3 className="font-semibold text-lg mb-4 text-gray-900 dark:text-gray-100">
-                Add Prefixes & Suffixes to Name
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Prefix Section */}
-                <div>
-                  <label htmlFor="prefix-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Select a Prefix:
-                  </label>
-                  <select
-                    id="prefix-select"
-                    value={selectedPrefix}
-                    onChange={(e) => {
-                      setSelectedPrefix(e.target.value);
-                      if (e.target.value !== 'custom') setCustomPrefix('');
-                    }}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-white dark:bg-gray-800 dark:border-gray-600"
-                  >
-                    <option value="">None</option>
-                    <option value="MNA">MNA</option>
-                    <option value="MPA">MPA</option>
-                    <option value="Adv">Adv</option>
-                    <option value="custom">Custom...</option>
-                  </select>
-                  {selectedPrefix === 'custom' && (
-                    <input
-                      type="text"
-                      placeholder="Enter custom prefix"
-                      value={customPrefix}
-                      onChange={(e) => setCustomPrefix(e.target.value)}
-                      className="mt-2 w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800"
-                    />
-                  )}
-                </div>
-
-                {/* Suffix Section */}
-                <div>
-                  <label htmlFor="suffix-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Select a Suffix:
-                  </label>
-                  <select
-                    id="suffix-select"
-                    value={selectedSuffix}
-                    onChange={(e) => {
-                      setSelectedSuffix(e.target.value);
-                      if (e.target.value !== 'custom') setCustomSuffix('');
-                    }}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-white dark:bg-gray-800 dark:border-gray-600"
-                  >
-                    <option value="">None</option>
-                    <option value="Sindh">Sindh</option>
-                    <option value="Punjab">Punjab</option>
-                    <option value="custom">Custom...</option>
-                  </select>
-                  {selectedSuffix === 'custom' && (
-                    <input
-                      type="text"
-                      placeholder="Enter custom suffix"
-                      value={customSuffix}
-                      onChange={(e) => setCustomSuffix(e.target.value)}
-                      className="mt-2 w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800"
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* File Content Preview Section */}
-            <div className="mt-8 p-6 bg-gray-50 dark:bg-gray-700 rounded-2xl shadow-inner">
-              <h3 className="font-semibold text-lg mb-4 text-gray-900 dark:text-gray-100">
-                File Content Preview
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-                Click a button to see what your file will look like before you download it.
-              </p>
-              <div className="flex space-x-2 mb-4">
-                <button
-                  onClick={() => handlePreview('csv')}
-                  className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                    activePreviewFormat === 'csv'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                  }`}
-                >
-                  .csv Preview
-                </button>
-                <button
-                  onClick={() => handlePreview('vcf')}
-                  className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                    activePreviewFormat === 'vcf'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                  }`}
-                >
-                  .vcf Preview
-                </button>
-                <button
-                  onClick={() => handlePreview('txt')}
-                  className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                    activePreviewFormat === 'txt'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                  }`}
-                >
-                  .txt Preview
-                </button>
-              </div>
-              {previewContent && (
-                <pre className="mt-4 p-4 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg overflow-auto max-h-96">
-                  {previewContent}
-                </pre>
-              )}
-            </div>
+        result_text = f"<h3>Your Zodiac Sign is: <b>{zodiac_sign}</b></h3><ul>"
+        speech_text = f"Your zodiac sign is {zodiac_sign}. "
+        
+        if details:
+            result_text += f"<li><b>Lucky Number:</b> {details.get('lucky_number')}</li>"
+            speech_text += f"Your lucky number is {details.get('lucky_number')}. "
             
-            {/* Export Button & Format Options */}
-            <div className="flex flex-col md:flex-row justify-center items-center mt-8 space-y-4 md:space-y-0 md:space-x-4">
-              <div className="flex items-center space-x-4">
-                <label className="font-semibold text-lg">Download as:</label>
-                <div className="flex space-x-2">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="csv-format"
-                      name="download-format"
-                      value="csv"
-                      checked={downloadFormats.includes('csv')}
-                      onChange={() => handleFormatChange('csv')}
-                      className="h-4 w-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
-                    />
-                    <label htmlFor="csv-format" className="ml-2 text-gray-700 dark:text-gray-300">.csv (Excel)</label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="vcf-format"
-                      name="download-format"
-                      value="vcf"
-                      checked={downloadFormats.includes('vcf')}
-                      onChange={() => handleFormatChange('vcf')}
-                      className="h-4 w-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
-                    />
-                    <label htmlFor="vcf-format" className="ml-2 text-gray-700 dark:text-gray-300">.vcf</label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="txt-format"
-                      name="download-format"
-                      value="txt"
-                      checked={downloadFormats.includes('txt')}
-                      onChange={() => handleFormatChange('txt')}
-                      className="h-4 w-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
-                    />
-                    <label htmlFor="txt-format" className="ml-2 text-gray-700 dark:text-gray-300">.txt</label>
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={handleExport}
-                className="px-8 py-3 bg-purple-600 text-white font-bold rounded-full shadow-lg hover:bg-purple-700 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-purple-300"
-              >
-                Download File(s)
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
+            result_text += f"<li><b>Lucky Color:</b> {details.get('lucky_color')}</li>"
+            speech_text += f"Your lucky color is {details.get('lucky_color')}. "
 
-export default App;
+            result_text += f"<li><b>Favorable Element:</b> {details.get('element')}</li>"
+            speech_text += f"Your favorable element is {details.get('element')}. "
+
+            result_text += f"<li><b>Birthstone:</b> {details.get('birthstone')}</li>"
+            speech_text += f"Your birthstone is {details.get('birthstone')}. "
+
+            result_text += f"<li><b>Ruling Planet:</b> {details.get('ruling_planet')}</li>"
+            speech_text += f"Your ruling planet is {details.get('ruling_planet')}. "
+            
+            result_text += f"<li><b>Lucky Day:</b> {details.get('lucky_day')}</li>"
+            speech_text += f"Your lucky day is {details.get('lucky_day')}. "
+
+        result_text += "</ul>"
+        
+        return zodiac_sign, result_text, speech_text
+
+    def _run_group_compatibility_analysis(self, inputs, selected_methods, is_astrology_selected):
+        final_summary_parts = []
+        final_summary_parts.append("<h3>Overall Group Compatibility Summary</h3>")
+        
+        person_count = len(inputs)
+        person_power = {i: 0 for i in range(person_count)}
+        for i in range(person_count):
+            for method in selected_methods:
+                p_data = self.person_data[i].get(method, {})
+                person_power[i] += p_data.get("success_lines", 0)
+                if isinstance(p_data.get("lucky_number"), int) and p_data.get("lucky_number") in [11, 22, 33]:
+                    person_power[i] += 1
+        
+        sorted_power = sorted(person_power.items(), key=lambda item: item[1], reverse=True)
+        final_summary_parts.append("<h4>Group Power Ranking (based on Numerology Master Numbers & Success Lines):</h4><ul>")
+        for rank, (index, score) in enumerate(sorted_power):
+            name = inputs[index]['name']
+            final_summary_parts.append(f"<li>{rank + 1}. {name} (Score: {score})</li>")
+        final_summary_parts.append("</ul>")
+
+        good_factors = set()
+        bad_factors = set()
+        for p1_index, p2_index in combinations(range(person_count), 2):
+            p1_name = inputs[p1_index]['name']
+            p2_name = inputs[p2_index]['name']
+            
+            # Numerology checks
+            for method in selected_methods:
+                p1_data = self.person_data[p1_index].get(method, {})
+                p2_data = self.person_data[p2_index].get(method, {})
+                
+                if p1_data.get("lucky_number") == p2_data.get("lucky_number") and p1_data.get("lucky_number"):
+                    good_factors.add(f"Matching Life Path Number ({p1_data['lucky_number']}) between {p1_name} and {p2_name} in {method}.")
+                
+                p1_fills_p2 = p1_data.get("present_numbers", set()).intersection(p2_data.get("missing_numbers", set()))
+                if p1_fills_p2:
+                    good_factors.add(f"{p1_name} provides missing numbers {sorted(list(p1_fills_p2))} for {p2_name}.")
+                
+                shared_missing = p1_data.get("missing_numbers", set()).intersection(p2_data.get("missing_numbers", set()))
+                if shared_missing:
+                    bad_factors.add(f"Shared missing numbers ({sorted(list(shared_missing))}) between {p1_name} and {p2_name} in {method}.")
+            
+            # Astrology check
+            if is_astrology_selected:
+                p1_zodiac = self.person_data[p1_index].get("astrology", {}).get("zodiac_sign")
+                p2_zodiac = self.person_data[p2_index].get("astrology", {}).get("zodiac_sign")
+                if p1_zodiac and p2_zodiac and p1_zodiac == p2_zodiac:
+                    good_factors.add(f"Shared Zodiac Sign ({p1_zodiac}) between {p1_name} and {p2_name}.")
+        
+        if good_factors:
+            final_summary_parts.append("<h4>Group Synergy (Positive Dynamics):</h4><ul>")
+            final_summary_parts.extend([f"<li>{item}</li>" for item in good_factors])
+            final_summary_parts.append("</ul>")
+        
+        if bad_factors:
+            final_summary_parts.append("<h4>Group Challenges (Potential Conflict & Growth Areas):</h4><ul>")
+            final_summary_parts.extend([f"<li>{item}</li>" for item in bad_factors])
+            final_summary_parts.append("</ul>")
+
+        return "".join(final_summary_parts)
+
+    def display_compatibility_analysis(self, compatibility_analysis_text):
+        self.compatibility_output_label.setText(compatibility_analysis_text)
+        self.compatibility_output_label.speech_text = self._format_tts_text(compatibility_analysis_text)
+        
+    def _format_tts_text(self, text_with_html):
+        clean_text = text_with_html.replace('<h3>', '... ').replace('</h3>', '... ')
+        clean_text = clean_text.replace('<h4>', '... ').replace('</h4>', '... ')
+        clean_text = clean_text.replace('<ul>', '. ').replace('</ul>', '. ')
+        clean_text = clean_text.replace('<li>', '. ').replace('</li>', '. ')
+        clean_text = clean_text.replace('<b>', '').replace('</b>', '')
+        clean_text = clean_text.replace('✅', 'Check. ').replace('❌', 'Cross. ')
+        clean_text = clean_text.replace(':', ', ').replace(';','.')
+        return clean_text
+
+    def _play_pause_tts(self, tts_id, person_id=None, method=None):
+        with self.tts_lock:
+            button = self.tts_buttons.get(tts_id)
+            if not button:
+                return
+            
+            if self.current_tts_id and self.current_tts_id != tts_id:
+                self.tts_engine.stop()
+                if self.current_tts_id in self.tts_buttons:
+                    old_button = self.tts_buttons[self.current_tts_id]
+                    old_button.setText("▶ Play")
+                self.is_tts_paused = False
+
+            if self.tts_engine.isBusy() and not self.is_tts_paused and self.current_tts_id == tts_id:
+                self.tts_engine.pause()
+                self.is_tts_paused = True
+                button.setText("▶ Resume")
+            elif self.tts_engine.isBusy() and self.is_tts_paused and self.current_tts_id == tts_id:
+                self.tts_engine.resume()
+                self.is_tts_paused = False
+                button.setText("⏸ Pause")
+            else:
+                self.is_tts_paused = False
+                button.setText("⏸ Pause")
+                self.current_tts_id = tts_id
+                
+                text_to_speak = ""
+                if tts_id == "compatibility":
+                    text_to_speak = getattr(self.compatibility_output_label, 'speech_text', None)
+                elif method == "astrology":
+                    text_to_speak = getattr(self.astrology_output_labels.get(person_id), 'speech_text', None)
+                else:
+                    text_to_speak = getattr(self.output_labels.get((method, person_id)), 'speech_text', None)
+                
+                if text_to_speak:
+                    threading.Thread(target=self._speak_thread, args=(text_to_speak, tts_id), daemon=True).start()
+                else:
+                    button.setText("▶ Play")
+                    self.current_tts_id = None
+                    msg = "Please click 'Analyze and Compare' first to generate the calculations."
+                    QMessageBox.information(self, "No Text to Speak", msg)
+
+
+    def _play_pause_compatibility(self):
+        self._play_pause_tts("compatibility")
+
+
+    def _speak_thread(self, message, tts_id):
+        with self.tts_lock:
+            if self.current_tts_id == tts_id:
+                self.tts_engine.say(message, tts_id)
+                self.tts_engine.runAndWait()
+
+
+    def _on_tts_finished(self, name, completed):
+        if completed and name in self.tts_buttons:
+            self.tts_buttons[name].setText("▶ Play")
+            self.current_tts_id = None
+            self.is_tts_paused = False
+    
+    def _stop_all_tts(self):
+        with self.tts_lock:
+            self.tts_engine.stop()
+            self.is_tts_paused = False
+            self.current_tts_id = None
+            for button in self.tts_buttons.values():
+                button.setText("▶ Play")
+
+    def copy_to_clipboard(self):
+        full_text = self._format_for_clipboard()
+        QApplication.clipboard().setText(full_text)
+        QMessageBox.information(self, "Copied to Clipboard", "The entire analysis has been copied to your clipboard.")
+
+    def _format_for_clipboard(self):
+        clipboard_text = []
+        person_count = self.person_count_spinbox.value()
+        
+        for i in range(person_count):
+            clipboard_text.append(f"\n--- Analysis for Person {i+1} ---\n")
+            
+            # Astrology output
+            if self.astrology_checkbox.isChecked():
+                clipboard_text.append(f"\n### Person {i+1} (Astrology)\n")
+                html_content = self.astrology_output_labels[i].text()
+                clipboard_text.append(self._html_to_plaintext(html_content))
+            
+            # Numerology outputs
+            for method, checkbox in self.method_checkboxes.items():
+                if checkbox.isChecked():
+                    clipboard_text.append(f"\n### Person {i+1} ({method})\n")
+                    html_content = self.output_labels[(method, i)].text()
+                    clipboard_text.append(self._html_to_plaintext(html_content))
+        
+        clipboard_text.append("\n--- Joint Compatibility Analysis ---\n")
+        html_content = self.compatibility_output_label.text()
+        clipboard_text.append(self._html_to_plaintext(html_content))
+        
+        return "\n".join(clipboard_text)
+
+    def _html_to_plaintext(self, html_content):
+        # A simple HTML to plaintext converter
+        text = html_content.replace('<h3>', '\n\n')
+        text = text.replace('</h3>', '\n')
+        text = text.replace('<h4>', '\n\n')
+        text = text.replace('</h4>', '\n')
+        text = text.replace('<ul>', '\n')
+        text = text.replace('</ul>', '\n')
+        text = text.replace('<li>', '- ')
+        text = text.replace('</li>', '\n')
+        text = text.replace('<b>', '')
+        text = text.replace('</b>', '')
+        text = text.replace('<br>', '\n')
+        text = text.replace('&rarr;', '->')
+        text = text.replace('✅', '(Success)')
+        text = text.replace('❌', '(Failure)')
+        return text.strip()
+
+
+    def toggle_dark_mode(self):
+        palette = QPalette()
+        if self.dark_toggle.isChecked():
+            palette.setColor(QPalette.Window, QColor(30, 30, 30))
+            palette.setColor(QPalette.WindowText, QColor(220, 220, 220))
+            palette.setColor(QPalette.Base, QColor(50, 50, 50))
+            palette.setColor(QPalette.Text, QColor(220, 220, 220))
+            palette.setColor(QPalette.Button, QColor(50, 50, 50))
+            palette.setColor(QPalette.ButtonText, QColor(220, 220, 220))
+            palette.setColor(QPalette.ToolTipBase, QColor(50, 50, 50))
+            palette.setColor(QPalette.ToolTipText, QColor(220, 220, 220))
+        else:
+            palette.setColor(QPalette.Window, QColor(240, 240, 240))
+            palette.setColor(QPalette.WindowText, QColor(0, 0, 0))
+            palette.setColor(QPalette.Base, QColor(255, 255, 255))
+            palette.setColor(QPalette.Text, QColor(0, 0, 0))
+            palette.setColor(QPalette.Button, QColor(240, 240, 240))
+            palette.setColor(QPalette.ButtonText, QColor(0, 0, 0))
+            palette.setColor(QPalette.ToolTipBase, QColor(255, 255, 220))
+            palette.setColor(QPalette.ToolTipText, QColor(0, 0, 0))
+        self.setPalette(palette)
+        app.setPalette(palette)
+
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    ex = NMSWindow()
+    ex.show()
+    sys.exit(app.exec_())
