@@ -1,5 +1,0 @@
-- name: Install dependencies
-  run: npm install
-
-- name: Run numerology engine
-  run: node index.jsx
